@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="ko" data-bs-theme="dark">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="language" content="ko">
+    <title>계약서 조회</title>
+    <link href="https://cdn.replit.com/agent/bootstrap-agent-dark-theme.min.css" rel="stylesheet">
+    <style>
+        /* 로고 반짝이는 효과 */
+        @keyframes shimmer {
+            0% {
+                background-position: 200% 0;
+            }
+
+            100% {
+                background-position: -200% 0;
+            }
+        }
+
+        .logo-container {
+            position: relative;
+            display: inline-block;
+        }
+
+        .logo-container::after {
+            content: "";
+            position: absolute;
+            top: -3px;
+            left: -3px;
+            right: -3px;
+            bottom: -3px;
+            background: linear-gradient(90deg,
+                    rgba(192, 192, 192, 0) 0%,
+                    rgba(192, 192, 192, 0.1) 20%,
+                    rgba(211, 211, 211, 0.5) 50%,
+                    rgba(192, 192, 192, 0.1) 80%,
+                    rgba(192, 192, 192, 0) 100%);
+            background-size: 200% 100%;
+            border-radius: 10px;
+            z-index: 1;
+            animation: shimmer 5s infinite linear;
+            pointer-events: none;
+        }
+
+        .notification {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 12px 20px;
+            border-radius: 5px;
+            color: white;
+            font-weight: bold;
+            z-index: 9999;
+            opacity: 0;
+            transition: opacity 0.3s ease-in-out;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            text-align: center;
+            min-width: 250px;
+        }
+
+        .notification.success {
+            background-color: #28a745;
+        }
+
+        .notification.error {
+            background-color: #dc3545;
+        }
+
+        .notification.show {
+            opacity: 1;
+        }
+
+        .container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin-top: -150px;
+        }
+
+        .card {
+            border-radius: 15px;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 500px;
+        }
+
+        .card-body {
+            padding: 2rem;
+        }
+
+        .btn {
+            width: 100%;
+            margin-bottom: 1rem;
+            padding: 1rem;
+            font-size: 1.1rem;
+        }
+
+        .image-preview {
+            max-width: 100%;
+            margin-top: 1rem;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+            display: none;
+        }
+
+        #search-results {
+            margin-top: 1rem;
+        }
+
+        .receipt-preview {
+            margin-top: 1rem;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: center;
+        }
+
+        .receipt-image {
+            max-width: 100%;
+            height: 150px;
+            border-radius: 5px;
+            box-shadow: 0 0 5px rgba(0, 0, 0, 0.2);
+            cursor: pointer;
+        }
+
+        /* Mobile responsive styles */
+        @media (max-width: 480px) {
+            .card {
+                max-width: 90%;
+                margin: 0 auto;
+            }
+
+            .receipt-image {
+                height: 100px;
+            }
+        }
+
+        /* Tablet responsive styles */
+        @media (min-width: 481px) and (max-width: 1024px) {
+            .receipt-image {
+                height: 120px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="card">
+            <div class="card-body">
+                <div class="text-center mb-4">
+                    <div class="logo-container">
+                        <img src="BDST.png" alt="BDST 로고"
+                            style="max-width: 150px; margin-bottom: 15px;  position: relative; z-index: 2;">
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">이름</label>
+                    <input type="text" class="form-control" id="name" placeholder="이름을 입력하세요">
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">생년월일</label>
+                    <input type="text" class="form-control" id="birthdate" placeholder="예: 19901010">
+                </div>
+
+                <button id="search-btn" class="btn btn-primary">계약서 조회</button>
+
+                <div id="search-results" class="mt-4" style="display: none;">
+                    <div class="alert alert-info" id="result-message"></div>
+
+                    <div id="contract-section" style="display: none;">
+                        <img id="contract-image" class="image-preview" style="display: block;">
+                        <button id="download-contract" class="btn btn-success mt-2">계약서 다운로드</button>
+                    </div>
+
+                    <div id="receipts-section" style="display: none;">
+                        <div id="receipt-images" class="receipt-preview"></div>
+                        <button id="download-all-receipts" class="btn btn-success mt-2">영수증 다운로드</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
+
+    <script>
+        // Firebase 설정
+        const firebaseConfig = {
+            apiKey: "AIzaSyAyP5QTMzBtz8lMEzkE4C66CjFbZ3a17QM",
+            authDomain: "bodystar-1b77d.firebaseapp.com",
+            projectId: "bodystar-1b77d",
+            storageBucket: "bodystar-1b77d.firebasestorage.app",
+            messagingSenderId: "1011822927832",
+            appId: "1:1011822927832:web:87f0d859b3baf1d8e21cad"
+        };
+
+        // Firebase 초기화
+        const app = firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        const storage = firebase.storage();
+
+        // 알림 표시 함수
+        function showNotification(message, type) {
+            // Check if notification element already exists
+            let notification = document.getElementById('notification');
+
+            // If not, create it
+            if (!notification) {
+                notification = document.createElement('div');
+                notification.id = 'notification';
+                notification.className = 'notification';
+                document.body.appendChild(notification);
+            }
+
+            // Add appropriate class for styling
+            notification.className = 'notification ' + type;
+
+            // Set notification content
+            notification.innerHTML = message;
+
+            // Show notification
+            setTimeout(() => {
+                notification.classList.add('show');
+            }, 10);
+
+            // Hide after 3 seconds
+            setTimeout(() => {
+                notification.classList.remove('show');
+            }, 3000);
+        }
+
+        // 이미지 다운로드 함수
+        async function downloadImage(url, filename) {
+            try {
+                const response = await fetch(url);
+                const blob = await response.blob();
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(blob);
+                link.download = filename;
+                link.click();
+                return true;
+            } catch (error) {
+                console.error('다운로드 오류:', error);
+                showNotification('이미지 다운로드 중 오류가 발생했습니다.', 'error');
+                return false;
+            }
+        }
+
+        // 날짜 포맷 변환 (YYYY-MM-DD -> YYMMDD)
+        function formatDateForSearch(dateString) {
+            if (!dateString) return null;
+
+            // Remove any non-digit characters
+            const digits = dateString.replace(/\D/g, '');
+
+            // Handle different formats
+            if (digits.length === 8) {
+                // YYYYMMDD format
+                return digits.substring(2); // Return YYMMDD
+            } else if (digits.length === 6) {
+                // Already in YYMMDD format
+                return digits;
+            }
+
+            return null;
+        }
+
+        document.addEventListener('DOMContentLoaded', function () {
+            const searchBtn = document.getElementById('search-btn');
+            const nameInput = document.getElementById('name');
+            const birthdateInput = document.getElementById('birthdate');
+            const searchResults = document.getElementById('search-results');
+            const resultMessage = document.getElementById('result-message');
+            const contractSection = document.getElementById('contract-section');
+            const contractImage = document.getElementById('contract-image');
+            const downloadContract = document.getElementById('download-contract');
+            const receiptsSection = document.getElementById('receipts-section');
+            const receiptImages = document.getElementById('receipt-images');
+            const downloadAllReceipts = document.getElementById('download-all-receipts');
+
+            // 검색 버튼 클릭 이벤트
+            searchBtn.addEventListener('click', async function () {
+                const name = nameInput.value.trim();
+                const birthdate = birthdateInput.value.trim();
+
+                if (!name) {
+                    showNotification('이름을 입력해주세요.', 'error');
+                    return;
+                }
+
+                // 검색 결과 초기화
+                searchResults.style.display = 'none';
+                contractSection.style.display = 'none';
+                receiptsSection.style.display = 'none';
+                contractImage.src = '';
+                receiptImages.innerHTML = '';
+
+                // 로딩 표시
+                searchBtn.disabled = true;
+                searchBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> 검색 중...';
+
+                try {
+                    console.log('검색 시작:', name, birthdate);
+                    // Firestore에서 이름으로 먼저 검색
+                    let query = db.collection("Membership").where("name", "==", name);
+                    const querySnapshot = await query.get();
+
+                    // 결과를 담을 배열
+                    const filteredResults = [];
+
+                    // 이름 검색 결과에서 생년월일 필터링 (클라이언트 측 필터링)
+                    if (!querySnapshot.empty) {
+                        console.log('이름으로 검색 결과:', querySnapshot.size);
+                        querySnapshot.forEach((doc) => {
+                            const data = doc.data();
+                            console.log('문서 데이터:', data.name, data.birthdate);
+                            // 생년월일이 입력되지 않았거나 입력된 생년월일과 일치하는 경우
+                            if (!birthdate || !data.birthdate ||
+                                data.birthdate === birthdate ||
+                                data.birthdate.replace(/\D/g, '') === birthdate.replace(/\D/g, '')) {
+                                filteredResults.push({doc, data});
+                            }
+                        });
+                    }
+
+                    if (filteredResults.length === 0) {
+                        resultMessage.innerHTML = '검색 결과가 없습니다.';
+                        searchResults.style.display = 'block';
+                        showNotification('검색 결과가 없습니다.', 'error');
+                    } else {
+                        let foundResults = filteredResults.length;
+
+                        // 각 결과에 대해 처리
+                        filteredResults.forEach(({doc, data}) => {
+
+                            // 계약서 이미지 표시
+                            if (data.imageUrl) {
+                                contractImage.src = data.imageUrl;
+                                contractImage.style.display = 'block';
+                                contractSection.style.display = 'block';
+
+                                // 계약서 다운로드 버튼 이벤트
+                                downloadContract.onclick = function () {
+                                    const filename = `${data.name}_계약서.jpg`;
+                                    downloadImage(data.imageUrl, filename);
+                                };
+                            }
+
+                            // 영수증 이미지 표시
+                            if (data.receipts && data.receipts.length > 0) {
+                                receiptsSection.style.display = 'block';
+
+                                data.receipts.forEach((receipt, index) => {
+                                    if (receipt.url) {
+                                        const imgContainer = document.createElement('div');
+                                        const img = document.createElement('img');
+                                        img.src = receipt.url;
+                                        img.className = 'receipt-image';
+                                        img.alt = `영수증 ${index + 1}`;
+
+                                        // 영수증 이미지 클릭 이벤트 (개별 다운로드)
+                                        img.onclick = function () {
+                                            const filename = `${data.name}_영수증${index + 1}.jpg`;
+                                            downloadImage(receipt.url, filename);
+                                        };
+
+                                        imgContainer.appendChild(img);
+                                        receiptImages.appendChild(imgContainer);
+                                    }
+                                });
+
+                                // 모든 영수증 다운로드 버튼 이벤트
+                                downloadAllReceipts.onclick = async function () {
+                                    let success = true;
+                                    for (let i = 0; i < data.receipts.length; i++) {
+                                        if (data.receipts[i].url) {
+                                            const filename = `${data.name}_영수증${i + 1}.jpg`;
+                                            const result = await downloadImage(data.receipts[i].url, filename);
+                                            if (!result) success = false;
+                                        }
+                                    }
+
+                                    if (success) {
+                                        showNotification('영수증을 다운로드했습니다.', 'success');
+                                    }
+                                };
+                            }
+                        });
+
+                        resultMessage.innerHTML = `${foundResults}개의 결과를 찾았습니다.`;
+                        searchResults.style.display = 'block';
+                    }
+                } catch (error) {
+                    console.error('검색 오류:', error);
+                    resultMessage.innerHTML = '검색 중 오류가 발생했습니다.';
+                    searchResults.style.display = 'block';
+                    showNotification('검색 중 오류가 발생했습니다.', 'error');
+                } finally {
+                    // 로딩 표시 제거
+                    searchBtn.disabled = false;
+                    searchBtn.innerHTML = '계약서 조회';
+                }
+            });
+
+            // 입력 필드에서 Enter 키 이벤트
+            nameInput.addEventListener('keypress', function (e) {
+                if (e.key === 'Enter') {
+                    searchBtn.click();
+                }
+            });
+
+            birthdateInput.addEventListener('keypress', function (e) {
+                if (e.key === 'Enter') {
+                    searchBtn.click();
+                }
+            });
+
+            // 생년월일 입력 제한 (숫자만, 최대 8자)
+            birthdateInput.addEventListener('input', function () {
+                let value = this.value.replace(/\D/g, '');
+
+                if (value.length > 8) {
+                    value = value.substring(0, 8);
+                }
+
+                this.value = value;
+            });
+        });
+    </script>
+</body>
+
+</html>
